@@ -1,4 +1,3 @@
-
 public class BTree<E extends Comparable<E>> {
     private BNode<E> root;
     private int orden;
@@ -10,133 +9,167 @@ public class BTree<E extends Comparable<E>> {
         this.root = null;
     }
 
-    public boolean isEmpty() {
-        return this.root == null;
-    }
-
     public void insert(E cl) {
         up = false;
-        E mediana;
-        BNode<E> pnew;
-        mediana = push(this.root, cl);
+        E med = push(root, cl);
         if (up) {
-            pnew = new BNode<>(this.orden);
-            pnew.count = 1;
-            pnew.keys.set(0, mediana);
-            pnew.childs.set(0, this.root);
-            pnew.childs.set(1, nDes);
-            if (this.root != null) this.root.parent = pnew;
-            if (nDes != null) nDes.parent = pnew;
-            this.root = pnew;
+            BNode<E> newR = new BNode<>(orden);
+            newR.count = 1;
+            newR.keys.set(0, med);
+            newR.childs.set(0, root);
+            newR.childs.set(1, nDes);
+            if (root != null) root.parent = newR;
+            if (nDes != null) nDes.parent = newR;
+            root = newR;
         }
     }
 
-    private E push(BNode<E> current, E cl) {
-        int[] pos = new int[1];
-        E mediana;
-
-        if (current == null) {
-            up = true;
-            nDes = null;
+    private E push(BNode<E> cur, E cl) {
+        if (cur == null) {
+            up = true; nDes = null;
             return cl;
         }
-
-        boolean found = current.searchNode(cl, pos);
-        if (found) {
-            System.out.println("Item duplicado");
+        int[] pos = new int[1];
+        if (cur.searchNode(cl, pos)) {
+            System.out.println("Item duplicado: " + cl);
             up = false;
             return null;
         }
-
-        mediana = push(current.childs.get(pos[0]), cl);
-
-        if (up) {
-            if (current.nodeFull(this.orden - 1)) {
-                mediana = dividedNode(current, mediana, pos[0]);
-            } else {
-                putNode(current, mediana, nDes, pos[0]);
-                up = false;
-            }
-        }
-        return mediana;
+        E med = push(cur.childs.get(pos[0]), cl);
+        if (!up) return null;
+        if (cur.nodeFull(orden - 1)) med = dividedNode(cur, med, pos[0]);
+        else { putNode(cur, med, nDes, pos[0]); up = false; }
+        return med;
     }
 
-    private void putNode(BNode<E> current, E cl, BNode<E> rd, int k) {
-        for (int i = current.count - 1; i >= k; i--) {
-            current.keys.set(i + 1, current.keys.get(i));
-            current.childs.set(i + 2, current.childs.get(i + 1));
+    private void putNode(BNode<E> cur, E cl, BNode<E> rd, int k) {
+        cur.keys.add(null); cur.childs.add(null);
+        for (int i = cur.count - 1; i >= k; i--) {
+            cur.keys.set(i + 1, cur.keys.get(i));
+            cur.childs.set(i + 2, cur.childs.get(i + 1));
         }
-        current.keys.set(k, cl);
-        current.childs.set(k + 1, rd);
-        if (rd != null) rd.parent = current;
-        current.count++;
+        cur.keys.set(k, cl);
+        cur.childs.set(k + 1, rd);
+        if (rd != null) rd.parent = cur;
+        cur.count++;
     }
 
-    private E dividedNode(BNode<E> current, E cl, int k) {
-        BNode<E> rd = nDes;
-        int posMdna = (this.orden - 1) / 2;
-        BNode<E> temp = new BNode<>(this.orden);
-        temp.parent = current.parent;
-
-        for (int i = posMdna + 1; i < this.orden - 1; i++) {
-            temp.keys.set(i - posMdna - 1, current.keys.get(i));
-            temp.childs.set(i - posMdna, current.childs.get(i + 1));
-            if (current.childs.get(i + 1) != null)
-                current.childs.get(i + 1).parent = temp;
+    private E dividedNode(BNode<E> cur, E cl, int k) {
+        int mid = (orden - 1) / 2;
+        BNode<E> sib = new BNode<>(orden);
+        sib.parent = cur.parent;
+        for (int i = mid + 1; i < orden - 1; i++) {
+            sib.keys.set(i - mid - 1, cur.keys.get(i));
+            sib.childs.set(i - mid, cur.childs.get(i + 1));
+            if (sib.childs.get(i - mid) != null) sib.childs.get(i - mid).parent = sib;
         }
+        sib.count = cur.count - mid - 1;
+        cur.count = mid;
 
-        temp.count = (this.orden - 1) - posMdna - 1;
+        E median = cur.keys.get(mid);
+        cur.keys.set(mid, null);
 
-        if (k <= posMdna) {
-            putNode(current, cl, rd, k);
-        } else {
-            putNode(temp, cl, rd, k - posMdna - 1);
-        }
+        if (k <= mid) putNode(cur, cl, nDes, k);
+        else putNode(sib, cl, nDes, k - mid - 1);
 
-        E median = current.keys.get(posMdna);
-        temp.childs.set(0, current.childs.get(posMdna + 1));
-        if (temp.childs.get(0) != null) temp.childs.get(0).parent = temp;
-
-        current.count = posMdna;
-        nDes = temp;
-        up = true;
+        sib.childs.set(0, cur.childs.get(mid + 1));
+        if (sib.childs.get(0) != null) sib.childs.get(0).parent = sib;
+        nDes = sib; up = true;
         return median;
     }
 
-    // --- MÉTODO SEARCH COMPLETO ---
     public boolean search(E cl) {
-        return searchNode(this.root, cl);
+        return searchNode(root, cl);
     }
 
-    private boolean searchNode(BNode<E> current, E cl) {
-        if (current == null) return false;
-
+    private boolean searchNode(BNode<E> cur, E cl) {
+        if (cur == null) return false;
         int[] pos = new int[1];
-        boolean found = current.searchNode(cl, pos);
-        if (found) {
-            System.out.println(cl + " se encuentra en el nodo " + current.idNode + " en la posición " + pos[0]);
+        if (cur.searchNode(cl, pos)) {
+            System.out.println("Encontrado " + cl + " en nodo " + cur.idNode + " pos " + pos[0]);
             return true;
-        } else {
-            return searchNode(current.childs.get(pos[0]), cl);
+        }
+        return searchNode(cur.childs.get(pos[0]), cl);
+    }
+
+    // ------------------ Métodos Remove ------------------
+
+    public void remove(E cl) {
+        if (root == null) { System.out.println("Árbol vacío"); return; }
+        if (!removeNode(root, cl)) System.out.println("Clave no encontrada: " + cl);
+        if (root.count == 0 && root.childs.get(0) != null) {
+            root = root.childs.get(0); root.parent = null;
         }
     }
 
-    // --- IMPRESIÓN DEL ÁRBOL ---
-    @Override
-    public String toString() {
-        if (isEmpty()) return "BTree is empty...";
-        return writeTree(this.root, 0);
-    }
-
-    private String writeTree(BNode<E> current, int level) {
-        StringBuilder sb = new StringBuilder();
-        if (current != null) {
-            sb.append(current.describeNode());
-            for (int i = 0; i <= current.count; i++) {
-                sb.append(writeTree(current.childs.get(i), level + 1));
+    private boolean removeNode(BNode<E> cur, E cl) {
+        if (cur == null) return false;
+        int[] pos = new int[1];
+        if (cur.searchNode(cl, pos)) {
+            if (cur.childs.get(0) == null) {
+                deleteKey(cur, pos[0]);
+                fix(cur);
+                return true;
+            } else {
+                BNode<E> p = cur.childs.get(pos[0]);
+                while (p.childs.get(p.count) != null) p = p.childs.get(p.count);
+                E pk = p.keys.get(p.count - 1);
+                cur.keys.set(pos[0], pk);
+                return removeNode(p, pk);
             }
         }
+        return removeNode(cur.childs.get(pos[0]), cl);
+    }
+
+    private void deleteKey(BNode<E> node, int p) {
+        for (int i = p; i < node.count - 1; i++) {
+            node.keys.set(i, node.keys.get(i + 1));
+            node.childs.set(i + 1, node.childs.get(i + 2));
+        }
+        node.keys.set(node.count - 1, null);
+        node.childs.set(node.count, null);
+        node.count--;
+    }
+
+    private void fix(BNode<E> node) {
+        if (node == root || node.count >= min()) return;
+        BNode<E> p = node.parent;
+        int idx;
+        for (idx = 0; idx <= p.count && p.childs.get(idx) != node; idx++);
+        BNode<E> left = (idx > 0 ? p.childs.get(idx - 1) : null);
+        BNode<E> right = (idx < p.count ? p.childs.get(idx + 1) : null);
+
+        if (left != null && left.count > min()) {
+            deleteKey(left, left.count - 1);
+            putNode(node, p.keys.get(idx - 1), left.childs.get(left.count), 0);
+            p.keys.set(idx - 1, left.keys.get(left.count - 1));
+        } else if (right != null && right.count > min()) {
+            deleteKey(right, 0);
+            putNode(node, p.keys.get(idx), right.childs.get(0), node.count);
+            p.keys.set(idx, right.keys.get(0));
+        } else if (left != null) merge(left, node, idx - 1);
+        else if (right != null) merge(node, right, idx);
+    }
+
+    private void merge(BNode<E> l, BNode<E> r, int pIdx) {
+        BNode<E> p = l.parent;
+        putNode(l, p.keys.get(pIdx), r, l.count);
+        deleteKey(l, l.count);  // remove first key from r
+        deleteKey(p, pIdx);
+        fix(p);
+    }
+
+    private int min() { return (orden - 1) / 2; }
+
+    @Override
+    public String toString() {
+        return root == null ? "Árbol vacío" : traverse(root);
+    }
+
+    private String traverse(BNode<E> cur) {
+        if (cur == null) return "";
+        StringBuilder sb = new StringBuilder(cur.describeNode()).append("\n");
+        for (int i = 0; i <= cur.count; i++) sb.append(traverse(cur.childs.get(i)));
         return sb.toString();
     }
 }
-
