@@ -1,3 +1,4 @@
+
 public class BTree<E extends Comparable<E>> {
     private BNode<E> root;
     private int orden;
@@ -38,27 +39,26 @@ public class BTree<E extends Comparable<E>> {
             up = true;
             nDes = null;
             return cl;
-        } else {
-            boolean found = current.searchNode(cl, pos);
-            if (found) {
-                System.out.println("Item duplicado");
-                up = false;
-                return null;
-            }
-
-            mediana = push(current.childs.get(pos[0]), cl);
-
-            if (up) {
-                if (current.nodeFull(this.orden - 1)) {
-                    mediana = dividedNode(current, mediana, pos[0]);
-                } else {
-                    putNode(current, mediana, nDes, pos[0]);
-                    up = false;
-                }
-            }
-
-            return mediana;
         }
+
+        boolean found = current.searchNode(cl, pos);
+        if (found) {
+            System.out.println("Item duplicado");
+            up = false;
+            return null;
+        }
+
+        mediana = push(current.childs.get(pos[0]), cl);
+
+        if (up) {
+            if (current.nodeFull(this.orden - 1)) {
+                mediana = dividedNode(current, mediana, pos[0]);
+            } else {
+                putNode(current, mediana, nDes, pos[0]);
+                up = false;
+            }
+        }
+        return mediana;
     }
 
     private void putNode(BNode<E> current, E cl, BNode<E> rd, int k) {
@@ -81,9 +81,8 @@ public class BTree<E extends Comparable<E>> {
         for (int i = posMdna + 1; i < this.orden - 1; i++) {
             temp.keys.set(i - posMdna - 1, current.keys.get(i));
             temp.childs.set(i - posMdna, current.childs.get(i + 1));
-            if (current.childs.get(i + 1) != null) {
+            if (current.childs.get(i + 1) != null)
                 current.childs.get(i + 1).parent = temp;
-            }
         }
 
         temp.count = (this.orden - 1) - posMdna - 1;
@@ -104,13 +103,29 @@ public class BTree<E extends Comparable<E>> {
         return median;
     }
 
+    // --- MÉTODO SEARCH COMPLETO ---
+    public boolean search(E cl) {
+        return searchNode(this.root, cl);
+    }
+
+    private boolean searchNode(BNode<E> current, E cl) {
+        if (current == null) return false;
+
+        int[] pos = new int[1];
+        boolean found = current.searchNode(cl, pos);
+        if (found) {
+            System.out.println(cl + " se encuentra en el nodo " + current.idNode + " en la posición " + pos[0]);
+            return true;
+        } else {
+            return searchNode(current.childs.get(pos[0]), cl);
+        }
+    }
+
+    // --- IMPRESIÓN DEL ÁRBOL ---
     @Override
     public String toString() {
-        if (isEmpty()) {
-            return "BTree is empty...";
-        } else {
-            return writeTree(this.root, 0);
-        }
+        if (isEmpty()) return "BTree is empty...";
+        return writeTree(this.root, 0);
     }
 
     private String writeTree(BNode<E> current, int level) {
@@ -124,3 +139,4 @@ public class BTree<E extends Comparable<E>> {
         return sb.toString();
     }
 }
+
