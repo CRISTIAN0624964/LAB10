@@ -1,6 +1,7 @@
+// RegistroEstudiante.java
 public class RegistroEstudiante implements Comparable<RegistroEstudiante> {
-    private int codigo;
-    private String nombre;
+    int codigo;
+    String nombre;
 
     public RegistroEstudiante(int codigo, String nombre) {
         this.codigo = codigo;
@@ -14,6 +15,6 @@ public class RegistroEstudiante implements Comparable<RegistroEstudiante> {
 
     @Override
     public String toString() {
-        return codigo + " - " + nombre;
+        return "(" + codigo + ", \"" + nombre + "\")";
     }
 }
