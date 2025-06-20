@@ -1,175 +1,88 @@
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.*;
+
 public class BTree<E extends Comparable<E>> {
-    private BNode<E> root;
+    public BNode<E> root;
     private int orden;
-    private boolean up;
-    private BNode<E> nDes;
 
     public BTree(int orden) {
         this.orden = orden;
         this.root = null;
     }
 
-    public void insert(E cl) {
-        up = false;
-        E med = push(root, cl);
-        if (up) {
-            BNode<E> newR = new BNode<>(orden);
-            newR.count = 1;
-            newR.keys.set(0, med);
-            newR.childs.set(0, root);
-            newR.childs.set(1, nDes);
-            if (root != null) root.parent = newR;
-            if (nDes != null) nDes.parent = newR;
-            root = newR;
+    public static BTree<Integer> building_Btree(String path) throws Exception {
+        List<String> lines = Files.readAllLines(Paths.get(path));
+        if (lines.isEmpty()) throw new ItemNoFoundException("Archivo vacío");
+
+        int ord = Integer.parseInt(lines.get(0).trim());
+        BTree<Integer> tree = new BTree<>(ord);
+        Map<Integer, List<BNode<Integer>>> levelMap = new HashMap<>();
+
+        for (int i = 1; i < lines.size(); i++) {
+            String[] parts = lines.get(i).split(",");
+            int level = Integer.parseInt(parts[0]);
+            int id = Integer.parseInt(parts[1]);
+            BNode<Integer> node = new BNode<>(ord);
+            node.idNode = id;  // conservar el id dado
+
+            for (int j = 2; j < parts.length; j++) {
+                int key = Integer.parseInt(parts[j].trim());
+                node.keys.set(node.count++, key);
+            }
+
+            levelMap.computeIfAbsent(level, k -> new ArrayList<>()).add(node);
+            if (level == 0) tree.root = node;
         }
-    }
 
-    private E push(BNode<E> cur, E cl) {
-        if (cur == null) {
-            up = true; nDes = null;
-            return cl;
-        }
-        int[] pos = new int[1];
-        if (cur.searchNode(cl, pos)) {
-            System.out.println("Item duplicado: " + cl);
-            up = false;
-            return null;
-        }
-        E med = push(cur.childs.get(pos[0]), cl);
-        if (!up) return null;
-        if (cur.nodeFull(orden - 1)) med = dividedNode(cur, med, pos[0]);
-        else { putNode(cur, med, nDes, pos[0]); up = false; }
-        return med;
-    }
-
-    private void putNode(BNode<E> cur, E cl, BNode<E> rd, int k) {
-        cur.keys.add(null); cur.childs.add(null);
-        for (int i = cur.count - 1; i >= k; i--) {
-            cur.keys.set(i + 1, cur.keys.get(i));
-            cur.childs.set(i + 2, cur.childs.get(i + 1));
-        }
-        cur.keys.set(k, cl);
-        cur.childs.set(k + 1, rd);
-        if (rd != null) rd.parent = cur;
-        cur.count++;
-    }
-
-    private E dividedNode(BNode<E> cur, E cl, int k) {
-        int mid = (orden - 1) / 2;
-        BNode<E> sib = new BNode<>(orden);
-        sib.parent = cur.parent;
-        for (int i = mid + 1; i < orden - 1; i++) {
-            sib.keys.set(i - mid - 1, cur.keys.get(i));
-            sib.childs.set(i - mid, cur.childs.get(i + 1));
-            if (sib.childs.get(i - mid) != null) sib.childs.get(i - mid).parent = sib;
-        }
-        sib.count = cur.count - mid - 1;
-        cur.count = mid;
-
-        E median = cur.keys.get(mid);
-        cur.keys.set(mid, null);
-
-        if (k <= mid) putNode(cur, cl, nDes, k);
-        else putNode(sib, cl, nDes, k - mid - 1);
-
-        sib.childs.set(0, cur.childs.get(mid + 1));
-        if (sib.childs.get(0) != null) sib.childs.get(0).parent = sib;
-        nDes = sib; up = true;
-        return median;
-    }
-
-    public boolean search(E cl) {
-        return searchNode(root, cl);
-    }
-
-    private boolean searchNode(BNode<E> cur, E cl) {
-        if (cur == null) return false;
-        int[] pos = new int[1];
-        if (cur.searchNode(cl, pos)) {
-            System.out.println("Encontrado " + cl + " en nodo " + cur.idNode + " pos " + pos[0]);
-            return true;
-        }
-        return searchNode(cur.childs.get(pos[0]), cl);
-    }
-
-    // ------------------ Métodos Remove ------------------
-
-    public void remove(E cl) {
-        if (root == null) { System.out.println("Árbol vacío"); return; }
-        if (!removeNode(root, cl)) System.out.println("Clave no encontrada: " + cl);
-        if (root.count == 0 && root.childs.get(0) != null) {
-            root = root.childs.get(0); root.parent = null;
-        }
-    }
-
-    private boolean removeNode(BNode<E> cur, E cl) {
-        if (cur == null) return false;
-        int[] pos = new int[1];
-        if (cur.searchNode(cl, pos)) {
-            if (cur.childs.get(0) == null) {
-                deleteKey(cur, pos[0]);
-                fix(cur);
-                return true;
-            } else {
-                BNode<E> p = cur.childs.get(pos[0]);
-                while (p.childs.get(p.count) != null) p = p.childs.get(p.count);
-                E pk = p.keys.get(p.count - 1);
-                cur.keys.set(pos[0], pk);
-                return removeNode(p, pk);
+        for (Map.Entry<Integer, List<BNode<Integer>>> entry : levelMap.entrySet()) {
+            int level = entry.getKey();
+            List<BNode<Integer>> parents = entry.getValue();
+            List<BNode<Integer>> children = levelMap.get(level + 1);
+            if (children == null) continue;
+            for (BNode<Integer> p : parents) {
+                int childIndex = 0;
+                for (BNode<Integer> c : children) {
+                    if (childIndex <= p.count) {
+                        p.childs.set(childIndex++, c);
+                        c.parent = p;
+                    }
+                }
             }
         }
-        return removeNode(cur.childs.get(pos[0]), cl);
+
+        validar(tree.root, ord, 0, levelMap.size() - 1);
+        return tree;
     }
 
-    private void deleteKey(BNode<E> node, int p) {
-        for (int i = p; i < node.count - 1; i++) {
-            node.keys.set(i, node.keys.get(i + 1));
-            node.childs.set(i + 1, node.childs.get(i + 2));
+    private static void validar(BNode<Integer> node, int orden, int nivel, int nivelMax) throws ItemNoFoundException {
+        if (node == null) return;
+        int minKeys = (node.parent == null ? 1 : (orden - 1) / 2);
+        if (node.count < minKeys || node.count > orden - 1) {
+            throw new ItemNoFoundException("Nodo " + node.idNode + " tiene " + node.count + " claves (orden=" + orden + ")");
         }
-        node.keys.set(node.count - 1, null);
-        node.childs.set(node.count, null);
-        node.count--;
+        boolean isLeaf = node.childs.stream().allMatch(Objects::isNull);
+        if (isLeaf && nivel != nivelMax)
+            throw new ItemNoFoundException("Hoja " + node.idNode + " en nivel incorrecto");
+        if (!isLeaf && nivel == nivelMax)
+            throw new ItemNoFoundException("Nodo interno " + node.idNode + " al nivel de hojas");
+
+        for (BNode<Integer> c : node.childs) {
+            if (c != null) validar(c, orden, nivel + 1, nivelMax);
+        }
     }
-
-    private void fix(BNode<E> node) {
-        if (node == root || node.count >= min()) return;
-        BNode<E> p = node.parent;
-        int idx;
-        for (idx = 0; idx <= p.count && p.childs.get(idx) != node; idx++);
-        BNode<E> left = (idx > 0 ? p.childs.get(idx - 1) : null);
-        BNode<E> right = (idx < p.count ? p.childs.get(idx + 1) : null);
-
-        if (left != null && left.count > min()) {
-            deleteKey(left, left.count - 1);
-            putNode(node, p.keys.get(idx - 1), left.childs.get(left.count), 0);
-            p.keys.set(idx - 1, left.keys.get(left.count - 1));
-        } else if (right != null && right.count > min()) {
-            deleteKey(right, 0);
-            putNode(node, p.keys.get(idx), right.childs.get(0), node.count);
-            p.keys.set(idx, right.keys.get(0));
-        } else if (left != null) merge(left, node, idx - 1);
-        else if (right != null) merge(node, right, idx);
-    }
-
-    private void merge(BNode<E> l, BNode<E> r, int pIdx) {
-        BNode<E> p = l.parent;
-        putNode(l, p.keys.get(pIdx), r, l.count);
-        deleteKey(l, l.count);  // remove first key from r
-        deleteKey(p, pIdx);
-        fix(p);
-    }
-
-    private int min() { return (orden - 1) / 2; }
 
     @Override
     public String toString() {
-        return root == null ? "Árbol vacío" : traverse(root);
+        return traverse(root);
     }
 
     private String traverse(BNode<E> cur) {
         if (cur == null) return "";
-        StringBuilder sb = new StringBuilder(cur.describeNode()).append("\n");
-        for (int i = 0; i <= cur.count; i++) sb.append(traverse(cur.childs.get(i)));
+        StringBuilder sb = new StringBuilder(cur.describeNode());
+        for (BNode<E> c : cur.childs) {
+            sb.append(traverse(c));
+        }
         return sb.toString();
     }
 }
